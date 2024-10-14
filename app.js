@@ -153,8 +153,15 @@ getAcessToken().then(() => {
                 song: item.name,
                 album_type: item.album.album_type,
                 album_name: item.album.name,
-                artist_name: item.artists[0].name,
-                image_url: item.album.images[0].url,
+                artist_name: item.artists.map(artist=> ({
+                    id: artist.id,
+                    name: artist.name
+                })),
+                album_images: item.album.images.map(images => ({
+                    link: images.url,
+                    height: images.height,
+                    width: images.width
+                })),
                 album_id: item.album.id
             }))
             res.status(200).json(formatted)
@@ -172,13 +179,19 @@ getAcessToken().then(() => {
                 id: musicData.id,
                 name: musicData.name,
                 releaseDate: musicData.album.release_date,
-                artistId: musicData.artists[0].id,
-                artist: musicData.artists[0].name,
+                artists: musicData.artists.map(artist=> ({
+                    id: artist.id,
+                    name: artist.name
+                })),
                 albumId: musicData.album.id,
                 albumType: musicData.album.album_type,
                 albumName: musicData.album.name,
                 orderTrack: musicData.track_number,
-                albumImage: musicData.album.images[0].url,
+                albumImages: musicData.album.images.map(images => ({
+                    link: images.url,
+                    height: images.height,
+                    width: images.width
+                })),
                 externalLink: musicData.external_urls.spotify
             }
             res.status(200).json(formatted)
@@ -196,8 +209,15 @@ getAcessToken().then(() => {
                 id: item.id,
                 album_name: item.name,
                 album_type: item.type,
-                artist_name: item.artists[0].name,
-                image_url: item.images[0].url,
+                artist_name: item.artists.map(artist=> ({
+                    id: artist.id,
+                    name: artist.name
+                })),
+                image_url: item.images.map(images => ({
+                    link: images.url,
+                    height: images.height,
+                    width: images.width
+                })),
                 release_date: item.release_date
             }))
             res.status(200).json(formatted)
@@ -216,9 +236,15 @@ getAcessToken().then(() => {
                 albumName: albumData.name,
                 releaseDate: albumData.releaseDate,
                 externalLink: albumData.external_urls.spotify,
-                albumImage: albumData.images[0].url,
-                artistId: albumData.artists[0].id,
-                artistName: albumData.artists[0].name,
+                albumImage: albumData.images.map(images => ({
+                    link: images.url,
+                    height: images.height,
+                    width: images.width
+                })),
+                artists: albumData.artists.map(artist=> ({
+                    id: artist.id,
+                    name: artist.name
+                })),
                 tracks: albumData.tracks.items.map(track => ({
                     id: track.id,
                     name: track.name,
