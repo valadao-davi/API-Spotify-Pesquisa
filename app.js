@@ -1,10 +1,12 @@
 import express from 'express';
 import axios from 'axios';
+import dotenv from 'dotenv'
 
+dotenv.config();
 const app = express();
 
-const clientID = "Insira suas credenciais"
-const clientSecret = "Insira suas credenciais"
+const clientID = process.env.SPOTIFY_CLIENT_ID
+const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
 
 //  Variavel de token a ser recebida
 let acessToken = ""
