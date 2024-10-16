@@ -152,6 +152,22 @@ const albumDetails = async(idAlbum: string): Promise<SpotifyApi.AlbumObjectFull 
     }
 }
 
+const playlistTracks = async(idPlaylist: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
+    const url = `https://api.spotify.com/v1/playlists/${idPlaylist}/tracks`
+    try {
+        const response = await axios.get<{ items: SpotifyApi.PlaylistTrackObject[] }>(url, {
+            headers: {
+                Authorization: `Bearer ${acessToken}`
+            }
+        })
+        const listItems: SpotifyApi.PlaylistTrackObject[] = response.data.items
+        return listItems
+    }catch(e){
+        console.error(e)
+        return []
+    }
+}
+
 getAcessToken().then(() => {
     app.get('/token', (req, res) => {
         res.json({ acessToken })
@@ -308,6 +324,25 @@ getAcessToken().then(() => {
                 res.status(404).json({message: `Artist with the ID: ${idArtist} Data not found`})
             }
             res.status(200).json(artistData)
+        }catch(e){
+            console.log(e)
+            res.status(500).json({"erro": e})
+        }
+    })
+    app.get('/playlistTracks/:id', async(req, res)=> {
+        const idPlaylist = req.params.id
+        try{
+            await verifyValidToken();
+            const playlistData = await playlistTracks(idPlaylist)
+            if(playlistData === null){
+                res.status(404).json({message: `Playlist with the ID: ${idPlaylist} Data not found`})
+            }else{
+                const formatted = {
+                    id: playlistData.id
+                }
+                res.status(200).json(playlistData)
+
+            }
         }catch(e){
             console.log(e)
             res.status(500).json({"erro": e})
