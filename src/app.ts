@@ -2,35 +2,42 @@ import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv'
 
-dotenv.config();
+dotenv.config({path: './src/.env'})
 const app = express();
 
-const clientID = process.env.SPOTIFY_CLIENT_ID
-const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
+const { clientID } = process.env
+const { clientSecret } = process.env
+
 
 //  Variavel de token a ser recebida
-let acessToken = ""
+let acessToken: string | null = null;
 // Variavel de quando o token será inválido
-let tokenExpiresAt = 0
+let tokenExpiresAt: number = 0;
 
 
 // Funções de requisição para criação do uso do Token
-const getAcessToken = async()=> {
-    const url = "https://accounts.spotify.com/api/token"
-    const data = new URLSearchParams({
+const getAcessToken = async(): Promise<void> => {
+
+    if(!clientID || !clientSecret) {
+        throw new Error("Client ID ou Client Secret não definidos no .env")
+    }
+
+    const url: string = "https://accounts.spotify.com/api/token"
+    
+    const data: URLSearchParams = new URLSearchParams({
         grant_type: "client_credentials",
         client_id: clientID,
         client_secret: clientSecret
     })
 
     try {
-        const response = await axios.post(url, data.toString(), {
+        const response = await axios.post<{ access_token: string, expires_in: number }>(url, data.toString(), {
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded' 
             }
         })
         acessToken = response.data.access_token
-        const expiresIn = response.data.expires_in
+        const expiresIn: number = response.data.expires_in
         // A variavel agora recebe um horário específico de quando vai ser expirado o token
         tokenExpiresAt = Date.now() + (expiresIn * 1000) // O tempo que foi recebido em segundos será convertido para ms
         console.log(expiresIn)
@@ -39,7 +46,7 @@ const getAcessToken = async()=> {
     }
 }
 
-const verifyValidToken = async() => {
+const verifyValidToken = async(): Promise<void> => {
     if(Date.now() > tokenExpiresAt){
         console.log("Token expirado. Buscando novo token")
         await getAcessToken()
@@ -49,23 +56,24 @@ const verifyValidToken = async() => {
 //Funções de busca:
 
 //Procura pela música
-const searchTrack = async(musicName) => {
-    const url = `https://api.spotify.com/v1/search?query=${musicName}&type=track&locale=pt-BR%2Cpt%3Bq%3D0.9&offset=0&limit=20`
+const searchTrack = async(musicName: string): Promise<SpotifyApi.TrackObjectFull[]> => {
+    const url: string = `https://api.spotify.com/v1/search?query=${musicName}&type=track&locale=pt-BR%2Cpt%3Bq%3D0.9&offset=0&limit=20`
     try {
         const response = await axios.get(url, {
             headers: {
                 Authorization: `Bearer ${acessToken}`
             }
         })
-        const listItems = response.data.tracks.items
+        const listItems: SpotifyApi.TrackObjectFull[] = response.data.tracks.items
         return listItems        
     }catch(err) {
         console.error('Ocorreu um erro: ', err)
+        return [];
     }
 
 }
 //Procura pelo artista
-const searchArtist = async(artistName) => {
+const searchArtist = async(artistName: string): Promise<SpotifyApi.ArtistObjectFull[]> => {
     const url = `https://api.spotify.com/v1/search?query=${artistName}&type=artist&locale=pt-BR%2Cpt%3Bq%3D0.9&offset=0&limit=20`
     try {
         const response = await axios.get(url, {
@@ -73,14 +81,15 @@ const searchArtist = async(artistName) => {
                 Authorization: `Bearer ${acessToken}`
             }
         })
-        const listItems = response.data.artists.items
+        const listItems: SpotifyApi.ArtistObjectFull[] = response.data.artists.items
         return listItems
     }catch(err) {
         console.error('Ocorreu um erro: ', err)
+        return [];
     }
 }
 //Procura pelo álbum
-const searchAlbum = async(albumName) => {
+const searchAlbum = async(albumName: string): Promise<SpotifyApi.AlbumObjectSimplified[]> => {
     const url = `https://api.spotify.com/v1/search?query=${albumName}&type=album&locale=pt-BR%2Cpt%3Bq%3D0.9&offset=0&limit=20`
     try {
         const response = await axios.get(url, {
@@ -88,17 +97,18 @@ const searchAlbum = async(albumName) => {
                 Authorization: `Bearer ${acessToken}`
             }
         })
-        const listItems = response.data.albums.items
+        const listItems: SpotifyApi.AlbumObjectSimplified[] = response.data.albums.items
         return listItems
     }catch(err) {
         console.error('Ocorreu um erro: ', err)
+        return [];
     }
 }
 //Entra nos detalhes do artista
-const detailsArtist = async(idArtist) => {
+const detailsArtist = async(idArtist: string): Promise<SpotifyApi.ArtistObjectFull | null> => {
     const url = `https://api.spotify.com/v1/artists/${idArtist}`
     try {
-        const response = await axios.get(url, {
+        const response = await axios.get<SpotifyApi.ArtistObjectFull>(url, {
             headers: {
                 Authorization: `Bearer ${acessToken}`
             }
@@ -106,13 +116,14 @@ const detailsArtist = async(idArtist) => {
         return response.data
     }catch(e){
         console.error('Erro: ', e)
+        return null;
     }
 }
 //Entra nos detalhes da música
-const musicDetails = async(idMusic) => {
+const musicDetails = async(idMusic: string): Promise<SpotifyApi.TrackObjectFull | null> => {
     const url = `https://api.spotify.com/v1/tracks/${idMusic}`
     try {
-        const response = await axios.get(url, {
+        const response = await axios.get<SpotifyApi.TrackObjectFull>(url, {
             headers: {
                 Authorization: `Bearer ${acessToken}`
             }
@@ -120,15 +131,16 @@ const musicDetails = async(idMusic) => {
         return response.data
     }catch(e){
         console.error('Erro: ', e)
+        return null;
     }
 
 }
 
 //Detalhes do álbum
-const albumDetails = async(idAlbum) => {
+const albumDetails = async(idAlbum: string): Promise<SpotifyApi.AlbumObjectFull | null> => {
     const url = `https://api.spotify.com/v1/albums/${idAlbum}`
     try {
-        const response = await axios.get(url, {
+        const response = await axios.get<SpotifyApi.AlbumObjectFull>(url, {
             headers: {
                 Authorization: `Bearer ${acessToken}`
             }
@@ -136,6 +148,7 @@ const albumDetails = async(idAlbum) => {
         return response.data
     }catch(e){
         console.error(e)
+        return null
     }
 }
 
@@ -144,10 +157,10 @@ getAcessToken().then(() => {
         res.json({ acessToken })
     })
     app.get('/searchMusic/:musicName', async (req, res)=> {
-        const musicName = req.params.musicName
+        const musicName: string = req.params.musicName
         try {
             await verifyValidToken();
-            const musicData = await searchTrack(musicName)
+            const musicData: SpotifyApi.TrackObjectFull[] = await searchTrack(musicName)
             const formatted = musicData.map(item => ({
                 id: item.id,
                 song: item.name,
@@ -175,26 +188,30 @@ getAcessToken().then(() => {
         try {
             await verifyValidToken();
             const musicData = await musicDetails(idMusic)
-            const formatted = {
-                id: musicData.id,
-                name: musicData.name,
-                releaseDate: musicData.album.release_date,
-                artists: musicData.artists.map(artist=> ({
-                    id: artist.id,
-                    name: artist.name
-                })),
-                albumId: musicData.album.id,
-                albumType: musicData.album.album_type,
-                albumName: musicData.album.name,
-                orderTrack: musicData.track_number,
-                albumImages: musicData.album.images.map(images => ({
-                    link: images.url,
-                    height: images.height,
-                    width: images.width
-                })),
-                externalLink: musicData.external_urls.spotify
+            if(musicData === null) {
+                res.status(404).json({message: `Music Data with the ID: ${idMusic} not found`})
+            }else{
+                const formatted = {
+                    id: musicData.id,
+                    name: musicData.name,
+                    releaseDate: musicData.album.release_date,
+                    artists: musicData.artists.map(artist=> ({
+                        id: artist.id,
+                        name: artist.name
+                    })),
+                    albumId: musicData.album.id,
+                    albumType: musicData.album.album_type,
+                    albumName: musicData.album.name,
+                    orderTrack: musicData.track_number,
+                    albumImages: musicData.album.images.map(images => ({
+                        link: images.url,
+                        height: images.height,
+                        width: images.width
+                    })),
+                    externalLink: musicData.external_urls.spotify
+                }
+                res.status(200).json(formatted)
             }
-            res.status(200).json(formatted)
         }catch(e){
             console.log(e)
             res.status(500).json({"erro": e})
@@ -230,28 +247,32 @@ getAcessToken().then(() => {
         try {
             await verifyValidToken();
             const albumData = await albumDetails(idAlbum)
-            const formatted = {
-                id: albumData.id,
-                albumType: albumData.album_type,
-                albumName: albumData.name,
-                releaseDate: albumData.releaseDate,
-                externalLink: albumData.external_urls.spotify,
-                albumImage: albumData.images.map(images => ({
-                    link: images.url,
-                    height: images.height,
-                    width: images.width
-                })),
-                artists: albumData.artists.map(artist=> ({
-                    id: artist.id,
-                    name: artist.name
-                })),
-                tracks: albumData.tracks.items.map(track => ({
-                    id: track.id,
-                    name: track.name,
-                    orderTrack: track.track_number
-                }))
+            if(albumData === null) {
+                res.status(404).json({message: `Album Data with the ID: ${albumData} not found`})
+            }else{
+                const formatted = {
+                    id: albumData.id,
+                    albumType: albumData.album_type,
+                    albumName: albumData.name,
+                    releaseDate: albumData.release_date,
+                    externalLink: albumData.external_urls.spotify,
+                    albumImage: albumData.images.map(images => ({
+                        link: images.url,
+                        height: images.height,
+                        width: images.width
+                    })),
+                    artists: albumData.artists.map(artist=> ({
+                        id: artist.id,
+                        name: artist.name
+                    })),
+                    tracks: albumData.tracks.items.map(track => ({
+                        id: track.id,
+                        name: track.name,
+                        orderTrack: track.track_number
+                    }))
+                }
+                res.status(200).json(formatted)
             }
-            res.status(200).json(formatted)
         }catch(e){
             console.log(e)
             res.status(500).json({"erro": e})
@@ -260,7 +281,7 @@ getAcessToken().then(() => {
 
 
     app.get('/searchArtist/:artistName', async(req, res)=> {
-        const artistName = req.params.artistName
+        const artistName: string = req.params.artistName
         try {
             await verifyValidToken();
             const artistData = await searchArtist(artistName)
@@ -269,7 +290,7 @@ getAcessToken().then(() => {
                 return {
                     id: artist.id,
                     artist: artist.name,
-                    image: details.images[0]?.url
+                    image: details?.images[0]?.url
                 }
             }))
             res.status(200).json(formatted)
@@ -283,6 +304,9 @@ getAcessToken().then(() => {
         try {
             await verifyValidToken();
             const artistData = await detailsArtist(idArtist)
+            if(artistData === null) {
+                res.status(404).json({message: `Artist with the ID: ${idArtist} Data not found`})
+            }
             res.status(200).json(artistData)
         }catch(e){
             console.log(e)
