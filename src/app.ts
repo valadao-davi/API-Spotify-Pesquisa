@@ -11,16 +11,17 @@ const { clientSecret } = process.env
 
 //  Variavel de token a ser recebida
 let acessToken: string | null = null;
-// Variavel de quando o token será inválido
-let tokenExpiresAt: number = 0;
+let tokenExpireTime: number = 0; // variável que dita quando o token será expirado 
 
 
 // Funções de requisição para criação do uso do Token
 const getAcessToken = async(): Promise<void> => {
 
+
     if(!clientID || !clientSecret) {
         throw new Error("Client ID ou Client Secret não definidos no .env")
     }
+
 
     const url: string = "https://accounts.spotify.com/api/token"
     
@@ -37,21 +38,14 @@ const getAcessToken = async(): Promise<void> => {
             }
         })
         acessToken = response.data.access_token
-        const expiresIn: number = response.data.expires_in
-        // A variavel agora recebe um horário específico de quando vai ser expirado o token
-        tokenExpiresAt = Date.now() + (expiresIn * 1000) // O tempo que foi recebido em segundos será convertido para ms
-        console.log(expiresIn)
+        tokenExpireTime = Date.now() + (response.data.expires_in) // recebe o tempo de agora + tempo que expira em milisegundos
+        setTimeout(getAcessToken, tokenExpireTime - Date.now() - 5000) // renova 5 segundos antes de expirar
     }catch(err) {
         console.error('Ocorreu um erro: ', err)
     }
 }
 
-const verifyValidToken = async(): Promise<void> => {
-    if(Date.now() > tokenExpiresAt){
-        console.log("Token expirado. Buscando novo token")
-        await getAcessToken()
-    }
-}
+
 
 //Funções de busca:
 
@@ -175,7 +169,6 @@ getAcessToken().then(() => {
     app.get('/searchMusic/:musicName', async (req, res)=> {
         const musicName: string = req.params.musicName
         try {
-            await verifyValidToken();
             const musicData: SpotifyApi.TrackObjectFull[] = await searchTrack(musicName)
             const formatted = musicData.map(item => ({
                 id: item.id,
@@ -202,7 +195,6 @@ getAcessToken().then(() => {
     app.get('/musicDetails/:idMusic', async (req, res)=> {
         const idMusic = req.params.idMusic
         try {
-            await verifyValidToken();
             const musicData = await musicDetails(idMusic)
             if(musicData === null) {
                 res.status(404).json({message: `Music Data with the ID: ${idMusic} not found`})
@@ -236,7 +228,6 @@ getAcessToken().then(() => {
     app.get('/searchAlbum/:albumName', async (req, res)=> {
         const albumName = req.params.albumName
         try {
-            await verifyValidToken();
             const albumData = await searchAlbum(albumName)
             const formatted = albumData.map(item => ({
                 id: item.id,
@@ -261,7 +252,6 @@ getAcessToken().then(() => {
     app.get('/albumDetails/:idAlbum', async (req, res)=> {
         const idAlbum = req.params.idAlbum
         try {
-            await verifyValidToken();
             const albumData = await albumDetails(idAlbum)
             if(albumData === null) {
                 res.status(404).json({message: `Album Data with the ID: ${albumData} not found`})
@@ -299,7 +289,6 @@ getAcessToken().then(() => {
     app.get('/searchArtist/:artistName', async(req, res)=> {
         const artistName: string = req.params.artistName
         try {
-            await verifyValidToken();
             const artistData = await searchArtist(artistName)
             const formatted = await Promise.all(artistData.map(async (artist) => {
                 const details = await detailsArtist(artist.id)
@@ -318,7 +307,6 @@ getAcessToken().then(() => {
     app.get('/artistDetails/:id', async(req, res)=> {
         const idArtist = req.params.id
         try {
-            await verifyValidToken();
             const artistData = await detailsArtist(idArtist)
             if(artistData === null) {
                 res.status(404).json({message: `Artist with the ID: ${idArtist} Data not found`})
@@ -332,15 +320,27 @@ getAcessToken().then(() => {
     app.get('/playlistTracks/:id', async(req, res)=> {
         const idPlaylist = req.params.id
         try{
-            await verifyValidToken();
             const playlistData = await playlistTracks(idPlaylist)
             if(playlistData === null){
                 res.status(404).json({message: `Playlist with the ID: ${idPlaylist} Data not found`})
             }else{
-                const formatted = {
-                    id: playlistData.id
-                }
-                res.status(200).json(playlistData)
+                const formatted = playlistData.map(item => ({
+                    id: item.track?.id,
+                    track_name: item.track?.name,
+                    artist_name: item.track?.artists.map(artist => ({
+                        id: artist.id,
+                        name: artist.name
+                    })),
+                    album_name: item.track?.album.name,
+                    album_id: item.track?.album.id,
+                    image_urls: item.track?.album.images.map(image => ({
+                        link: image.url,
+                        width: image.width,
+                        height: image.height
+                    }))
+
+                }))
+                res.status(200).json(formatted)
 
             }
         }catch(e){
